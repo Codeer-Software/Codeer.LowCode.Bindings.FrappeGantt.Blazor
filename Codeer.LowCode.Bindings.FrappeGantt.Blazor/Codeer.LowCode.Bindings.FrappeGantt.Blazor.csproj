@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Codeer.LowCode.Blazor" Version="1.0.31" />
+    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="8.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FrappeGantt.Blazor\FrappeGanttJS.Blazor.csproj">
+      <Private>True</Private>
+      <PrivateAssets></PrivateAssets>
+      <ReferenceOutputAssembly>True</ReferenceOutputAssembly>
+      <CopyLocalSatelliteAssemblies>True</CopyLocalSatelliteAssemblies>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <UpToDateCheckInput Remove="Fields\IgGrid\IgbGridFieldComponent.razor" />
+    <UpToDateCheckInput Remove="Installer\MudBlazorInstaller.razor" />
+    <UpToDateCheckInput Remove="Fields\MudChart\MudChartFieldComponent.razor" />
+  </ItemGroup>
+
+</Project>

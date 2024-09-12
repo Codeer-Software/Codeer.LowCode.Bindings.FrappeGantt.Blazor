@@ -1,0 +1,131 @@
+﻿@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Web
+@implements IAsyncDisposable
+@inject IJSRuntime JsRuntime
+
+<div class="gantt-wrap @(DarkMode ? "dark" : "")">
+  <svg id="@_elementId"/>
+</div>
+
+@code {
+
+  private readonly string _elementId = ("gantt_" + Guid.NewGuid()).Replace("-", "");
+  private List<GanttTaskData> _currentDataSource = [];
+  private ViewModes.Enum _currentViewMode = ViewModes.Enum.Day;
+  private IJSObjectReference? _module;
+  private DotNetObjectReference<FrappeGantt>? _dotNetObjectRef;
+
+  [Parameter]
+  public bool DarkMode { get; set; }
+
+  [Parameter]
+  public GanttOptions Options { get; set; } = new();
+
+  [Parameter]
+  public ViewModes.Enum ViewMode { get; set; }
+
+  [Parameter]
+  public List<global::FrappeGanttJS.Blazor.GanttTaskData> DataSource { get; set; } = [];
+
+  [Parameter]
+  public EventCallback<GanttTaskData> ItemClicked { get; set; }
+
+  [Parameter]
+  public EventCallback<DateChangeEventArgs> DateChanged { get; set; }
+
+  [Parameter]
+  public EventCallback<ProgressChangeEventArgs> ProgressChanged { get; set; }
+
+  [Parameter]
+  public EventCallback<ViewModes.Enum> ViewModeChanged { get; set; }
+
+  [Parameter]
+  public EventCallback ViewInitialized { get; set; }
+
+  protected override async Task OnInitializedAsync() {
+    await base.OnInitializedAsync();
+    _dotNetObjectRef = DotNetObjectReference.Create(this);
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender) {
+    await base.OnAfterRenderAsync(firstRender);
+    if (firstRender) {
+      _currentDataSource = DataSource.Select(e=>e.Clone()).ToList();
+      _currentViewMode = ViewMode;
+      _module = await JsRuntime.InvokeAsync<IJSObjectReference>(
+        "window.FrappeGanttModule.create", _dotNetObjectRef, "#" + _elementId, _currentDataSource, Options);
+      await ViewInitialized.InvokeAsync();
+    }
+  }
+
+  protected override async Task OnParametersSetAsync() {
+    await base.OnParametersSetAsync();
+    var module = _module;
+    var currentDataSource = _currentDataSource;
+    if (module is null) return;
+
+    //TODO 無限ループするので仮対応 なんだけどこれでええんか？データの変更があればインスタンスは作り直している
+    if (!IsSame(currentDataSource, DataSource))
+    {
+      _currentDataSource = DataSource;
+      await module.InvokeVoidAsync("setDataSource", DataSource);
+    }
+
+    if (_currentViewMode != ViewMode) {
+      _currentViewMode = ViewMode;
+      await module.InvokeVoidAsync("setViewMode", ViewModes.AsInteropValue(ViewMode));
+    }
+  }
+
+  private bool IsSame(List<global::FrappeGanttJS.Blazor.GanttTaskData> lhs, List<global::FrappeGanttJS.Blazor.GanttTaskData> rhs)
+  {
+    if (lhs.Count != rhs.Count) return false;
+    for (var i = 0; i < lhs.Count; i++)
+    {
+      if (!lhs[i].Equals(rhs[i])) return false;
+      if (lhs[i].Dependencies?.SequenceEqual(rhs[i].Dependencies ?? []) == false) return false;
+    }
+    return true;
+  }
+
+
+  public async ValueTask DisposeAsync() {
+    var module = _module;
+    if (module is not null) {
+      await module.DisposeAsync();
+    }
+
+    _dotNetObjectRef?.Dispose();
+  }
+
+  [JSInvokable]
+  public void OnClickCallback(GanttTaskData task) {
+    ItemClicked.InvokeAsync(task);
+  }
+
+  [JSInvokable]
+  public void OnDateChangeCallback(GanttTaskData task, DateTime start, DateTime end) {
+    DateChanged.InvokeAsync(new DateChangeEventArgs(task, start, end));
+  }
+
+  [JSInvokable]
+  public void OnProgressChangeCallback(GanttTaskData task, double progress) {
+    ProgressChanged.InvokeAsync(new ProgressChangeEventArgs(task, progress));
+  }
+
+  [JSInvokable]
+  public void OnViewChangeCallback(string viewMode) {
+    ViewModeChanged.InvokeAsync(ViewModes.AsEnum(viewMode));
+  }
+
+  public async Task<DateTime> GetStartDateAsync() {
+    if (_module is null) return DateTime.Now;
+    return await _module.InvokeAsync<DateTime>("getStartDate");
+  }
+
+  public async Task<DateTime> GetEndDateAsync() {
+    if (_module is null) return DateTime.Now;
+    return await _module.InvokeAsync<DateTime>("getEndDate");
+  }
+
+}

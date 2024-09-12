@@ -1,0 +1,181 @@
+﻿@using Codeer.LowCode.Blazor.Components
+@using FrappeGanttJS.Blazor
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Forms
+@using Codeer.LowCode.Blazor.Components.Dialog
+@inherits Codeer.LowCode.Blazor.Components.FieldComponentBase<Codeer.LowCode.Bindings.FrappeGantt.Blazor.Fields.FrappeGanttField>
+
+<FrappeGantt DataSource="@Field.Tasks" Options="Options" @bind-ViewMode="@Field.ViewMode"
+             ItemClicked="ItemClicked" DateChanged="DateChanged" ProgressChanged="ProgressChanged"/>
+
+<div class="d-flex justify-content-between mt-2">
+  <div class="btn-group" role="group">
+    <InputRadioGroup TValue="ViewModes.Enum" @bind-Value="Field.ViewMode">
+      <InputRadio Value="ViewModes.Enum.QuarterDay" class="btn-check" id="@(WebElementId + "_v_qd")"/>
+      <label class="btn btn-outline-primary" for="@(WebElementId + "_v_qd")">
+        Quarter Day
+      </label>
+      <InputRadio Value="ViewModes.Enum.HalfDay" class="btn-check" id="@(WebElementId + "_v_hd")"/>
+      <label class="btn btn-outline-primary" for="@(WebElementId + "_v_hd")">
+        Half Day
+      </label>
+      <InputRadio Value="ViewModes.Enum.Day" class="btn-check" id="@(WebElementId + "_v_d")"/>
+      <label class="btn btn-outline-primary" for="@(WebElementId + "_v_d")">
+        Day
+      </label>
+      <InputRadio Value="ViewModes.Enum.Week" class="btn-check" id="@(WebElementId + "_v_w")"/>
+      <label class="btn btn-outline-primary" for="@(WebElementId + "_v_w")">
+        Week
+      </label>
+      <InputRadio Value="ViewModes.Enum.Month" class="btn-check" id="@(WebElementId + "_v_m")"/>
+      <label class="btn btn-outline-primary" for="@(WebElementId + "_v_m")">
+        Month
+      </label>
+    </InputRadioGroup>
+  </div>
+  <div class="d-flex gap-3">
+    <button class="btn btn-outline-secondary" @onclick="AddClicked">Add</button>
+    <button class="btn btn-outline-secondary" @onclick="AddDepsClicked">Add Dependencies</button>
+    <button class="btn btn-outline-secondary" @onclick="RemoveDepsClicked">Remove Dependencies</button>
+  </div>
+</div>
+
+<ModalBase Title="Add dependencies" @bind-IsOpen="_addDepsIsOpen">
+  <div class="container">
+    <div class="row">
+      <div class="col-3">
+        <label for="addFrom">From</label>
+      </div>
+      <div class="col-9">
+        <InputSelect TValue="string" @bind-Value="_addingFrom" id="addFrom" class="form-select">
+          <option value="">---</option>
+          @foreach (var task in Field.Tasks) {
+            <option value="@task.Id">@task.Name</option>
+          }
+        </InputSelect>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-3">
+        <label for="addTarget">Target</label>
+      </div>
+      <div class="col-9">
+        <InputSelect TValue="string" @bind-Value="_addingTarget" id="addTarget" class="form-select">
+          <option value="">---</option>
+          @foreach (var task in Field.Tasks) {
+            <option value="@task.Id">@task.Name</option>
+          }
+        </InputSelect>
+      </div>
+    </div>
+    <div class="row mt-3">
+      <div class="col-12 d-flex gap-3">
+        <button class="btn btn-primary" @onclick="() => _addDepsIsOpen = false">Cancel</button>
+        <button class="btn btn-primary" @onclick="AddDeps">Add</button>
+      </div>
+    </div>
+  </div>
+</ModalBase>
+
+<ModalBase Title="Remove dependencies" @bind-IsOpen="_removeDepsIsOpen">
+  <div class="container">
+    <div class="row">
+      <div class="col-3">
+        <label for="removeFrom">From</label>
+      </div>
+      <div class="col-9">
+        <InputSelect TValue="string" @bind-Value="_removingFrom" id="removeFrom" class="form-select">
+          <option value="">---</option>
+          @foreach (var task in Field.Dependencies.Keys) {
+            <option value="@task">@Field.Tasks.FirstOrDefault(t => t.Id == task)?.Name</option>
+          }
+        </InputSelect>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-3">
+        <label for="removeTarget">Target</label>
+      </div>
+      <div class="col-9">
+        <InputSelect TValue="string" @bind-Value="_removingTarget" id="removeTarget" class="form-select">
+          <option value="">---</option>
+          @if(!string.IsNullOrEmpty(_removingFrom)) {
+            foreach (var task in Field.Dependencies[_removingFrom]) {
+              <option value="@task">@Field.Tasks.FirstOrDefault(t => t.Id == task)?.Name</option>
+            }
+          }
+        </InputSelect>
+      </div>
+    </div>
+    <div class="row mt-3">
+      <div class="col-12 d-flex gap-3">
+        <button class="btn btn-primary" @onclick="() => _removeDepsIsOpen = false">Cancel</button>
+        <button class="btn btn-primary" @onclick="RemoveDeps">Remove</button>
+      </div>
+    </div>
+  </div>
+</ModalBase>
+
+@code {
+
+  private bool _addDepsIsOpen = false;
+  private bool _removeDepsIsOpen = false;
+  private string _addingFrom = "";
+  private string _addingTarget = "";
+  private string _removingFrom = "";
+  private string _removingTarget = "";
+
+  private static readonly GanttOptions Options = new() {
+    TodayButtons = true,
+    ViewModeSelector = true,
+    ScrollTo = DateTime.Today.AddDays(-7).ToString("yyyy-MM-dd"),
+  };
+
+  protected override async Task OnParametersSetAsync() {
+    await base.OnParametersSetAsync();
+    Field.SetStateChangedReceiver(StateHasChanged);
+  }
+
+  private async Task ItemClicked(GanttTaskData obj) {
+    await Field.EditAsync(Field.GetModule(obj.Id));
+  }
+
+  private async Task DateChanged(DateChangeEventArgs obj) {
+    await Field.ChangeDate(Field.GetModule(obj.Task.Id), obj.Start, obj.End);
+  }
+
+  private async Task ProgressChanged(ProgressChangeEventArgs obj) {
+    await Field.ChangePercent(Field.GetModule(obj.Task.Id), obj.Progress);
+  }
+
+  private async Task AddClicked() {
+    await Field.AddAsync();
+  }
+
+  private void AddDepsClicked() {
+    _addDepsIsOpen = true;
+  }
+
+  private void RemoveDepsClicked() {
+    _removeDepsIsOpen = true;
+  }
+
+  private async Task AddDeps() {
+    _addDepsIsOpen = false;
+    if (string.IsNullOrEmpty(_addingFrom) || string.IsNullOrEmpty(_addingTarget)) {
+      return;
+    }
+
+    await Field.AddDependencies(_addingFrom, _addingTarget);
+  }
+  
+  private async Task RemoveDeps() {
+    _removeDepsIsOpen = false;
+    if (string.IsNullOrEmpty(_removingFrom) || string.IsNullOrEmpty(_removingTarget)) {
+      return;
+    }
+
+    await Field.DeleteDependencies(_removingFrom, _removingTarget);
+  }
+
+}

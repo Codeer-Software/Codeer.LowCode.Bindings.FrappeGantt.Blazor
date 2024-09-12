@@ -1,0 +1,3 @@
+[submodule "FrappeGantt.Blazor/frappe-gantt"]
+	path = FrappeGantt.Blazor/frappe-gantt
+	url = https://github.com/frappe/gantt
