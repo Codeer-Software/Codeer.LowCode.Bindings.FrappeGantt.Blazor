@@ -250,7 +250,27 @@ namespace Codeer.LowCode.Bindings.FrappeGantt.Blazor.Fields
                     new VariableName($"{Design.DependencyDestinationIdField}.Value").Equal(destinationId))
             });
 
+            if (Dependencies.ContainsKey(destinationId))
+            {
+                var deps = Dependencies[destinationId].ToList();
+                deps.Remove(sourceId);
+                if (deps.Count == 0)
+                {
+                    Dependencies.Remove(destinationId);
+                }
+                else
+                {
+                    Dependencies[destinationId] = deps.ToArray();
+                }
+            }
+
+            UpdateDependencies();
+            MakeDependencyList();
+
             var ret = await Services.ModuleDataService.SubmitAsync(new[] { srcSubmitData, dstTask.Module.GetSubmitData() }.ToList());
+
+            await InvokeOnDataChangedAsync();
+            await NotifyDataChangedAsync();
         }
 
         private async Task DeleteAsync(Module mod)
