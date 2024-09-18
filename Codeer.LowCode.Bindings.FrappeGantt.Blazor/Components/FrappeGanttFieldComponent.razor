@@ -1,5 +1,4 @@
-﻿@using Codeer.LowCode.Blazor.Components
-@using FrappeGanttJS.Blazor
+﻿@using FrappeGanttJS.Blazor
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components.Forms
 @using Codeer.LowCode.Blazor.Components.Dialog
@@ -80,29 +79,15 @@
 <ModalBase Title="Remove dependencies" @bind-IsOpen="_removeDepsIsOpen">
   <div class="container">
     <div class="row">
-      <div class="col-3">
-        <label for="removeFrom">From</label>
-      </div>
-      <div class="col-9">
-        <InputSelect TValue="string" @bind-Value="_removingFrom" id="removeFrom" class="form-select">
-          <option value="">---</option>
-          @foreach (var task in Field.Dependencies.Keys) {
-            <option value="@task">@Field.Tasks.FirstOrDefault(t => t.Id == task)?.Name</option>
-          }
-        </InputSelect>
+      <div class="col">
+        <label for="removeFrom">Remove dependency</label>
       </div>
     </div>
     <div class="row">
-      <div class="col-3">
-        <label for="removeTarget">Target</label>
-      </div>
-      <div class="col-9">
-        <InputSelect TValue="string" @bind-Value="_removingTarget" id="removeTarget" class="form-select">
-          <option value="">---</option>
-          @if(!string.IsNullOrEmpty(_removingFrom)) {
-            foreach (var task in Field.Dependencies[_removingFrom]) {
-              <option value="@task">@Field.Tasks.FirstOrDefault(t => t.Id == task)?.Name</option>
-            }
+      <div class="col">
+        <InputSelect @bind-Value="_removingDeps" mul id="removeFrom" class="form-select">
+          @foreach (var task in Field.DependencyList) {
+            <option value="@task.Key">@task.FromLabel → @task.ToLabel</option>
           }
         </InputSelect>
       </div>
@@ -122,8 +107,7 @@
   private bool _removeDepsIsOpen = false;
   private string _addingFrom = "";
   private string _addingTarget = "";
-  private string _removingFrom = "";
-  private string _removingTarget = "";
+  private string[]? _removingDeps = [];
 
   private static readonly GanttOptions Options = new() {
     TodayButtons = true,
@@ -168,14 +152,21 @@
 
     await Field.AddDependencies(_addingFrom, _addingTarget);
   }
-  
+
   private async Task RemoveDeps() {
     _removeDepsIsOpen = false;
-    if (string.IsNullOrEmpty(_removingFrom) || string.IsNullOrEmpty(_removingTarget)) {
+    if (_removingDeps == null) {
       return;
     }
 
-    await Field.DeleteDependencies(_removingFrom, _removingTarget);
+    foreach (var depsKey in _removingDeps) {
+      var dep = Field.DependencyList.Find(x => x.Key == depsKey);
+      if (dep is null) {
+        continue;
+      }
+
+      await Field.DeleteDependencies(dep.From, dep.To);
+    }
   }
 
 }

@@ -37,6 +37,7 @@ namespace Codeer.LowCode.Bindings.FrappeGantt.Blazor.Fields
         List<ModuleGanttTaskData> _tasks = new();
         public List<GanttTaskData> Tasks => _tasks.OfType<GanttTaskData>().ToList();
         public Dictionary<string, string[]> Dependencies { get; set; } = new();
+        public List<DependencyListItem> DependencyList { get; set; } = new();
 
         public FrappeGanttField(FrappeGanttFieldDesign design) : base(design) { }
 
@@ -88,10 +89,12 @@ namespace Codeer.LowCode.Bindings.FrappeGantt.Blazor.Fields
                 Design.DetailLayoutName);
             Dependencies = depsItems.Select(ConvertToGanttDeps).GroupBy(e => e.Key)
                 .ToDictionary(e => e.Key, e => e.Select(f => f.Value).ToArray());
+
             // タスク一覧を更新
             var items = await this.GetChildModulesAsync(GetSearchCondition(), ModuleLayoutType.Detail,
                 Design.DetailLayoutName);
             _tasks = items.Select(ConvertToGanttTaskData).ToList();
+            MakeDependencyList();
             NotifyStateChanged();
         }
 
@@ -213,6 +216,7 @@ namespace Codeer.LowCode.Bindings.FrappeGantt.Blazor.Fields
             }
 
             UpdateDependencies();
+            MakeDependencyList();
 
             //モジュールの値を取り直す(楽観ロックの値を取得するため)
             var idVariable = new VariableName($"{Design.IdField}.Value");
@@ -355,5 +359,24 @@ namespace Codeer.LowCode.Bindings.FrappeGantt.Blazor.Fields
 
             _tasks = _tasks.ToList();
         }
+
+        private void MakeDependencyList()
+        {
+            DependencyList.Clear();
+
+            foreach (var pair in Dependencies)
+            {
+                var toLabel = _tasks.FirstOrDefault(e => e.Id == pair.Key)?.Name ?? "";
+                foreach (var from in pair.Value)
+                {
+                    var fromLabel = _tasks.FirstOrDefault(e => e.Id == from)?.Name ?? "";
+                    DependencyList.Add(new(fromLabel, toLabel, from, pair.Key, $"{from}->{pair.Key}"));
+                }
+            }
+
+            DependencyList = DependencyList.OrderBy(item => item.Key).ToList();
+        }
+
+        public record DependencyListItem(string FromLabel, string ToLabel, string From, string To, string Key);
     }
 }
